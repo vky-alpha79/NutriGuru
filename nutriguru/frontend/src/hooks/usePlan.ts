@@ -13,7 +13,7 @@ export function useGeneratePlan() {
 export function useExportPlan() {
   return useMutation({
     mutationFn: async (payload: { challenge_id: string }) => {
-      const { data } = await api.post('/plan/export', payload)
+      const { data } = await api.post('/plan/export', payload, { responseType: 'blob' })
       return data
     },
   })

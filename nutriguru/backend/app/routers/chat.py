@@ -1,9 +1,14 @@
 import asyncio
 import uuid
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import APIRouter, Depends
 
+from app.db.database import get_db
 from app.middleware.auth import get_current_user
+from app.models.plan import Challenge
+from app.models.user import User
 from app.schemas.chat import ChatRequest, ChatResponse, SecurityInfo
 from app.services.llm_router import route_llm_request
 from app.services.lakera_guard import (
@@ -20,11 +25,43 @@ router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest, user: dict = Depends(get_current_user)):
+async def chat(
+    req: ChatRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     user_id = user["sub"]
     mode = await get_current_mode()
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    user_record = await db.get(User, uuid.UUID(user_id))
+    current_challenge = None
+    if user_record:
+        challenge_result = await db.execute(
+            select(Challenge)
+            .where(Challenge.user_id == user_record.id)
+            .order_by(Challenge.created_at.desc())
+            .limit(1)
+        )
+        current_challenge = challenge_result.scalar_one_or_none()
+        profile_context = (
+            "User profile context for personalization:\n"
+            f"Name: {user_record.name}\n"
+            f"Age: {user_record.age}, Sex: {user_record.sex}\n"
+            f"Weight: {user_record.weight_kg}kg, Height: {user_record.height_cm}cm, BMI: {user_record.bmi:.1f}\n"
+            f"Activity: {user_record.activity_type}\n"
+            f"Dietary Preference: {user_record.dietary_pref}\n"
+            f"Cuisine Preference: {user_record.cuisine_pref}\n"
+        )
+        if current_challenge:
+            profile_context += (
+                f"Current challenge: {current_challenge.start_date} to {current_challenge.end_date}\n"
+                f"Calorie target: {current_challenge.daily_calorie_target:.0f} kcal/day\n"
+                f"Protein target: {current_challenge.protein_target_g:.0f} g/day\n"
+                f"Difficulty: {current_challenge.difficulty}\n"
+            )
+        messages.append({"role": "system", "content": profile_context})
+
     for msg in req.history:
         messages.append({"role": msg.role, "content": msg.content})
     messages.append({"role": "user", "content": req.message})

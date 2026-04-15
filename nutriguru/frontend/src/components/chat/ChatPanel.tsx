@@ -13,6 +13,13 @@ interface Props {
   onMealGenerated?: (data: any) => void
 }
 
+function createSessionId(): string {
+  if (typeof window !== 'undefined' && window.crypto && 'randomUUID' in window.crypto) {
+    return window.crypto.randomUUID()
+  }
+  return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
 export default function ChatPanel({ onMealGenerated }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -23,7 +30,7 @@ export default function ChatPanel({ onMealGenerated }: Props) {
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sessionId] = useState(() => crypto.randomUUID())
+  const [sessionId] = useState(createSessionId)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

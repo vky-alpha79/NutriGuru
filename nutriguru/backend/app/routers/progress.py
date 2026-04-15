@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.plan import Challenge, ProgressEntry
+from app.schemas.progress import ProgressLogRequest, ProgressLogResponse
 
 router = APIRouter()
 
@@ -21,6 +22,8 @@ async def get_progress(
     challenge = await db.get(Challenge, uuid.UUID(challenge_id))
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
+    if str(challenge.user_id) != user["sub"]:
+        raise HTTPException(status_code=403, detail="Not your challenge")
 
     result = await db.execute(
         select(ProgressEntry)
@@ -63,3 +66,46 @@ async def get_progress(
             for e in entries
         ],
     }
+
+
+@router.post("/progress", response_model=ProgressLogResponse)
+async def log_progress(
+    payload: ProgressLogRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    challenge = await db.get(Challenge, uuid.UUID(payload.challenge_id))
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if str(challenge.user_id) != user["sub"]:
+        raise HTTPException(status_code=403, detail="Not your challenge")
+
+    existing_result = await db.execute(
+        select(ProgressEntry).where(
+            ProgressEntry.challenge_id == challenge.id,
+            ProgressEntry.entry_date == payload.entry_date,
+        )
+    )
+    entry = existing_result.scalar_one_or_none()
+    if entry:
+        entry.actual_weight_kg = payload.actual_weight_kg
+        entry.calories_consumed = payload.calories_consumed
+        entry.meals_completed = payload.meals_completed
+    else:
+        entry = ProgressEntry(
+            challenge_id=challenge.id,
+            entry_date=payload.entry_date,
+            actual_weight_kg=payload.actual_weight_kg,
+            calories_consumed=payload.calories_consumed,
+            meals_completed=payload.meals_completed,
+        )
+        db.add(entry)
+    await db.flush()
+    return ProgressLogResponse(
+        id=str(entry.id),
+        challenge_id=str(entry.challenge_id),
+        entry_date=entry.entry_date,
+        actual_weight_kg=entry.actual_weight_kg,
+        calories_consumed=entry.calories_consumed,
+        meals_completed=entry.meals_completed or {},
+    )

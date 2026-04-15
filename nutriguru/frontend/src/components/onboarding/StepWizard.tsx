@@ -32,12 +32,30 @@ export default function StepWizard() {
     return false
   }
 
+  const parseErrorMessage = (err: any) => {
+    const detail = err?.response?.data?.detail
+    if (Array.isArray(detail)) {
+      return detail.map((d: any) => d?.msg || 'Validation error').join(', ')
+    }
+    if (typeof detail === 'string') {
+      return detail
+    }
+    if (err?.message) {
+      return err.message
+    }
+    return 'Something went wrong'
+  }
+
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
     try {
-      const [sy, sm, sd] = startDate.split('-')
-      const [ey, em, ed] = endDate.split('-')
+      const passwordBytes = new TextEncoder().encode(password).length
+      if (passwordBytes > 72) {
+        setError('Password must be 72 bytes or less')
+        setLoading(false)
+        return
+      }
 
       const res = await api.post('/onboard', {
         personal: {
@@ -63,10 +81,10 @@ export default function StepWizard() {
       const data = res.data
       setAuth(data.token, data.user_id)
       profile.setMetrics(data.metrics, data.warnings)
-      if (data.challenge_id) profile.setChallengeId(data.challenge_id)
+      profile.setChallengeId(data.challenge_id)
       navigate('/')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Something went wrong')
+      setError(parseErrorMessage(err))
     } finally {
       setLoading(false)
     }

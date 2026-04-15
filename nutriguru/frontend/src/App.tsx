@@ -7,6 +7,7 @@ import DietChatPage from './pages/DietChatPage'
 import ProgressPage from './pages/ProgressPage'
 import SecurityConsolePage from './pages/SecurityConsolePage'
 import SettingsPage from './pages/SettingsPage'
+import ExportPage from './pages/ExportPage'
 import { useAuthStore } from './stores/useAuthStore'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -34,7 +35,7 @@ export default function App() {
           <Route path="/analytics" element={<ProgressPage />} />
           <Route path="/security" element={<SecurityConsolePage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/export" element={<DietChatPage />} />
+          <Route path="/export" element={<ExportPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -37,6 +37,14 @@ class OnboardRequest(BaseModel):
     challenge: ChallengeInfo
     password: str = Field(min_length=6, max_length=128)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_bytes(cls, v: str) -> str:
+        # bcrypt supports up to 72 bytes.
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password must be 72 bytes or less")
+        return v
+
 
 class SafetyWarning(BaseModel):
     code: str
@@ -59,6 +67,7 @@ class ComputedMetrics(BaseModel):
 
 class OnboardResponse(BaseModel):
     user_id: str
+    challenge_id: str
     token: str
     metrics: ComputedMetrics
     warnings: list[SafetyWarning]

@@ -66,6 +66,7 @@ async def onboard_user(req: OnboardRequest, db: AsyncSession = Depends(get_db)):
 
     return OnboardResponse(
         user_id=str(user.id),
+        challenge_id=str(challenge.id),
         token=token,
         metrics=metrics,
         warnings=warnings,
